@@ -1,32 +1,45 @@
+// App.tsx — o coração do bagulho. nem sei como isso tudo funciona junto mas tá rodando
 import { useState, useMemo, useEffect } from 'react';
 import { format, parseISO, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
-  Calendar as CalendarIcon, 
-  CheckCircle2, 
-  Clock, 
-  BookOpen, 
-  BarChart3, 
-  Settings2, 
-  ChevronLeft, 
+import {
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Clock,
+  BookOpen,
+  Settings2,
+  ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  Search,
   AlertCircle,
   Menu,
   Trophy,
   ArrowRight,
   Cat,
-  Gamepad2,
-  Wrench,
   Gift,
-  X
+  X,
+  Sparkles,
+  StickyNote,
+  BarChart3,
+  CalendarClock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-import { useSchedule, REVIEW_STAGES } from './hooks/useSchedule';
+import { useSchedule } from './hooks/useSchedule';
+import { useTopicNotes } from './hooks/useTopicNotes';
+import { useStats } from './hooks/useStats';
+import { TopicNoteEditor } from './components/TopicNoteEditor';
+import { StatsView } from './components/StatsView';
+import { useDailyGoal } from './hooks/useDailyGoal';
+import { useImportantDates } from './hooks/useImportantDates';
+import { useFlashcards } from './hooks/useFlashcards';
+import { DailyGoalRing } from './components/DailyGoalRing';
+import { GlobalFlashcardButton } from './components/GlobalFlashcardButton';
+import { ImportantDatesView } from './components/ImportantDatesView';
+import { UpcomingDates } from './components/UpcomingDates';
+import { REVIEW_STAGES } from './hooks/useSchedule';
 import { MODULES } from './data/modules';
+import { PetState, MissionState, WeeklyGoal } from './types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -43,6 +56,8 @@ import { PetView } from './components/PetView';
 import { MissionsView } from './components/MissionsView';
 import { CalendarView } from './components/CalendarView';
 import { MiniPetWidget } from './components/MiniPetWidget';
+import { FlashcardView } from './components/FlashcardView';
+import { TutorialOverlay, useTutorial } from './components/TutorialOverlay';
 
 export default function App() {
   const { 
@@ -50,7 +65,7 @@ export default function App() {
     calendar, dueReviews, stats, 
     toggleTopic, markModuleAsRead, markReviewDone,
     changeDayModule,
-    completedTopics, moduleProgress,
+    completedTopics, moduleProgress, reviewsDone,
     studyTimeSeconds, dailyStudyLog, subjectOrder, setSubjectOrder, xp, pet, addStudyTime, interactWithPet,
     setXp, setStudyTimeSeconds,
     missions, claimMissionReward,
@@ -63,7 +78,36 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('estudos');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // L5: auto-dismiss da mensagem depois de 5s
+  useEffect(() => {
+    if (!systemMessage) return;
+    const t = setTimeout(clearSystemMessage, 5000);
+    return () => clearTimeout(t);
+  }, [systemMessage, clearSystemMessage]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFlashcardModule, setActiveFlashcardModule] = useState<{ id: string, title: string } | null>(null);
+  const [activeNoteTopicKey, setActiveNoteTopicKey] = useState<string | null>(null);
+  const [activeGlobalFlashcard, setActiveGlobalFlashcard] = useState(false);
+  const tutorial = useTutorial();
+
+  const topicNotes = useTopicNotes();
+  const dailyGoal = useDailyGoal();
+  const importantDates = useImportantDates();
+  const flashcards = useFlashcards();
+
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const todaySeconds = dailyStudyLog[todayKey] ?? 0;
+  const dailyGoalProgress = dailyGoal.getProgress(todaySeconds);
+
+  const globalDueCount = flashcards.getGlobalDueCards(todayKey).length;
+  const globalTotalCount = flashcards.getGlobalCards().length;
+
+  const statsData = useStats(
+    completedTopics, reviewsDone, moduleProgress,
+    studyTimeSeconds, dailyStudyLog, xp,
+    missions, dueReviews.length, settings
+  );
 
   const moveSubject = (index: number, direction: 'up' | 'down') => {
     const newOrder = [...subjectOrder];
@@ -91,28 +135,10 @@ export default function App() {
     return count;
   }, [pet]);
 
-  const last7DaysStudy = useMemo(() => {
-    return Array.from({ length: 7 }).map((_, i) => {
-      const date = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd');
-      const seconds = dailyStudyLog[date] || 0;
-      return {
-        date,
-        label: format(subDays(new Date(), 6 - i), 'EEE', { locale: ptBR }),
-        hours: seconds / 3600
-      };
-    });
-  }, [dailyStudyLog]);
-
   const focusDay = calendar.find(d => d.date === settings.focusDate);
-  const focusModules = focusDay?.plannedModuleIds.map(id => MODULES.find(m => m.id === id)).filter(Boolean) || [];
+  const focusModules = focusDay?.plannedModuleIds.map(id => MODULES.find(m => m.id === id)).filter((m): m is typeof MODULES[number] => !!m) || [];
 
   const recommendations = useMemo(() => {
-    const dailyDone = focusModules.every(m => {
-      const prog = moduleProgress[m!.id];
-      return prog && prog.pct === 100;
-    });
-    if (!dailyDone && focusModules.length > 0) return [];
-
     return MODULES
       .filter(m => {
         const prog = moduleProgress[m.id];
@@ -160,11 +186,12 @@ export default function App() {
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-md">
         <div className="container mx-auto px-4 md:px-6 h-14 md:h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="hover:bg-white/5 text-text-primary h-10 w-10 touch-target"
               onClick={() => setIsSidebarOpen(true)}
+              data-tutorial="sidebar"
             >
               <Menu className="w-5 h-5 md:w-6 md:h-6" />
             </Button>
@@ -196,7 +223,16 @@ export default function App() {
               <span className="text-[8px] font-bold text-accent-red uppercase">{stats.daysToExam} dias p/ prova</span>
               <Progress value={stats.pct} className="h-1 w-16 bg-white/10" indicatorClassName="bg-accent-red" />
             </div>
-            <Button variant="ghost" size="icon" className="text-text-primary h-10 w-10 touch-target">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-text-primary h-10 w-10 touch-target"
+              onClick={tutorial.startTutorial}
+              title="Tutorial"
+            >
+              <Sparkles className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="text-text-primary h-10 w-10 touch-target" onClick={() => document.getElementById('settings-card')?.scrollIntoView({ behavior: 'smooth' })}>
               <Settings2 className="w-5 h-5" />
             </Button>
           </div>
@@ -207,11 +243,11 @@ export default function App() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 md:space-y-8">
           <div className="flex overflow-x-auto scrollbar-none -mx-4 px-4 pb-2">
             <TabsList className="bg-card-bg border border-border p-1 rounded-2xl h-12 md:h-14 flex-nowrap shrink-0 w-max min-w-full sm:min-w-0 sm:mx-auto">
-              <TabsTrigger value="estudos" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 text-xs md:text-sm whitespace-nowrap">
+              <TabsTrigger value="estudos" data-tutorial="estudos" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 text-xs md:text-sm whitespace-nowrap">
                 <BookOpen className="w-4 h-4 shrink-0" />
                 <span className="shrink-0">Estudos</span>
               </TabsTrigger>
-              <TabsTrigger value="pet" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 relative text-xs md:text-sm whitespace-nowrap">
+              <TabsTrigger value="pet" data-tutorial="pet" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 relative text-xs md:text-sm whitespace-nowrap">
                 <Cat className="w-4 h-4 shrink-0" />
                 <span className="shrink-0">Meu Pet</span>
                 {petAlertCount > 0 && (
@@ -220,12 +256,20 @@ export default function App() {
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="missions" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 relative text-xs md:text-sm whitespace-nowrap">
+              <TabsTrigger value="missions" data-tutorial="missions" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 relative text-xs md:text-sm whitespace-nowrap">
                 <Trophy className="w-4 h-4 shrink-0" />
                 <span className="shrink-0">Missões</span>
                 {hasUnclaimedMissions && (
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-accent-red rounded-full border-2 border-card-bg animate-pulse" />
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="stats" data-tutorial="stats" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 text-xs md:text-sm whitespace-nowrap">
+                <BarChart3 className="w-4 h-4 shrink-0" />
+                <span className="shrink-0">Estatísticas</span>
+              </TabsTrigger>
+              <TabsTrigger value="datas" data-tutorial="datas" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 text-xs md:text-sm whitespace-nowrap">
+                <CalendarClock className="w-4 h-4 shrink-0" />
+                <span className="shrink-0">Datas</span>
               </TabsTrigger>
               <TabsTrigger value="calendar" className="rounded-xl px-3.5 md:px-8 h-10 md:h-12 data-[state=active]:bg-accent-red data-[state=active]:text-white font-bold transition-all gap-2 text-xs md:text-sm whitespace-nowrap">
                 <CalendarIcon className="w-4 h-4 shrink-0" />
@@ -247,10 +291,7 @@ export default function App() {
                   </Button>
                   
                   <Popover>
-                    <PopoverTrigger render={<Button variant="ghost" className="font-serif italic text-sm md:text-xl hover:bg-white/5 text-text-primary px-3 md:px-6 truncate" />}>
-                      <CalendarIcon className="w-3 md:w-4 h-3 md:h-4 mr-2 md:mr-3 text-accent-red shrink-0" />
-                      <span className="truncate">{format(parseISO(settings.focusDate), "EE, d 'de' MMM", { locale: ptBR })}</span>
-                    </PopoverTrigger>
+                    <PopoverTrigger render={<Button variant="ghost" className="font-serif italic text-sm md:text-xl hover:bg-white/5 text-text-primary px-3 md:px-6 truncate"><CalendarIcon className="w-3 md:w-4 h-3 md:h-4 mr-2 md:mr-3 text-accent-red shrink-0" /><span className="truncate">{format(parseISO(settings.focusDate), "EE, d 'de' MMM", { locale: ptBR })}</span></Button>} />
                     <PopoverContent className="w-auto p-0 rounded-bento border-border shadow-bento bg-card-bg" align="center">
                       <Calendar
                         mode="single"
@@ -290,15 +331,22 @@ export default function App() {
                                 <span className="text-[10px] font-bold text-accent-red uppercase tracking-[0.15em]">
                                   {module!.subject}
                                 </span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-7 px-2 rounded-lg bg-accent-red/10 text-accent-red hover:bg-accent-red hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest gap-1.5"
+                                  onClick={() => setActiveFlashcardModule({ id: module!.id, title: module!.title })}
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  Cards
+                                </Button>
                                 <Popover>
-                                  <PopoverTrigger render={<Button variant="ghost" size="icon" className="w-7 h-7 rounded-full hover:bg-white/5 md:w-8 md:h-8 touch-target" />}>
-                                    <Settings2 className="w-3.5 h-3.5 text-text-secondary" />
-                                  </PopoverTrigger>
+                                  <PopoverTrigger render={<Button variant="ghost" size="icon" className="w-7 h-7 rounded-full hover:bg-white/5 md:w-8 md:h-8 touch-target"><Settings2 className="w-3.5 h-3.5 text-text-secondary" /></Button>} />
                                   <PopoverContent className="w-[85vw] max-w-sm bg-card-bg border-border p-4 rounded-2xl shadow-2xl z-50">
                                     <h4 className="text-xs font-bold text-text-primary uppercase tracking-widest mb-3">Trocar Matéria</h4>
                                     <ScrollArea className="h-64 pr-2">
                                       <div className="space-y-1">
-                                        {MODULES.filter(m => moduleProgress[m.id].pct < 100).map(m => (
+                                        {MODULES.filter(m => (moduleProgress[m.id]?.pct ?? 0) < 100).map(m => (
                                           <Button 
                                             key={m.id}
                                             variant="ghost" 
@@ -328,27 +376,40 @@ export default function App() {
                             </div>
                           </CardHeader>
                           <CardContent className="p-4 md:p-6 space-y-4 md:space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3" data-tutorial="notas">
                               {module!.items.map((item, idx) => {
                                 const isDone = !!completedTopics[`${module!.id}__${idx}`];
+                                const topicKey = `${module!.id}__${idx}`;
+                                const hasNote = topicNotes.hasNote(topicKey);
                                 return (
-                                  <div 
-                                    key={idx} 
+                                  <div
+                                    key={idx}
                                     className={`flex items-start gap-3 p-3 md:p-4 rounded-xl md:rounded-2xl border transition-all cursor-pointer touch-target ${
-                                      isDone 
-                                        ? 'bg-accent-red/5 border-accent-red/20' 
+                                      isDone
+                                        ? 'bg-accent-red/5 border-accent-red/20'
                                         : 'bg-black/20 border-border hover:border-accent-red/30'
                                     }`}
                                     onClick={() => toggleTopic(module!.id, idx)}
                                   >
-                                    <Checkbox 
-                                      checked={isDone} 
+                                    <Checkbox
+                                      checked={isDone}
                                       onCheckedChange={() => toggleTopic(module!.id, idx)}
                                       className="mt-0.5 border-border data-[state=checked]:bg-accent-red data-[state=checked]:border-accent-red"
                                     />
-                                    <span className={`text-xs md:text-sm leading-relaxed ${isDone ? 'text-text-secondary/40 line-through' : 'text-text-secondary'}`}>
+                                    <span className={`text-xs md:text-sm leading-relaxed flex-1 ${isDone ? 'text-text-secondary/40 line-through' : 'text-text-secondary'}`}>
                                       {item}
                                     </span>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setActiveNoteTopicKey(topicKey); }}
+                                      className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                                        hasNote
+                                          ? 'bg-accent-red/10 text-accent-red'
+                                          : 'text-text-tertiary hover:text-text-secondary hover:bg-white/5'
+                                      }`}
+                                      title={hasNote ? 'Ver/editar anotação' : 'Adicionar anotação'}
+                                    >
+                                      <StickyNote className="w-3.5 h-3.5" />
+                                    </button>
                                   </div>
                                 );
                               })}
@@ -403,7 +464,7 @@ export default function App() {
                       const isCurrent = focusModules.some(m => m?.subject === subject);
 
                       return (
-                        <Card key={subject} className={`rounded-bento border-border bg-card-bg p-4 hover:border-accent-red/20 transition-all ${isCurrent ? 'ring-1 ring-accent-red/30' : ''}`}>
+                        <Card key={subject} className={"rounded-bento border-border bg-card-bg p-4 hover:border-accent-red/20 transition-all" + (isCurrent ? ' ring-1 ring-accent-red/30' : '')}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-bold">{subject}</span>
@@ -419,13 +480,16 @@ export default function App() {
                             />
                           </div>
                           <div className="mt-3 flex flex-wrap gap-1">
-                            {subjectModules.map(m => (
-                              <div 
-                                key={m.id} 
-                                className={`w-2 h-2 rounded-full ${moduleProgress[m.id].pct === 100 ? 'bg-accent-red' : moduleProgress[m.id].pct > 0 ? 'bg-accent-red/40' : 'bg-white/5'}`}
-                                title={m.title}
-                              />
-                            ))}
+                            {subjectModules.map(m => {
+                              const pct = moduleProgress[m.id]?.pct ?? 0;
+                              return (
+                                <div
+                                  key={m.id}
+                                  className={`w-2 h-2 rounded-full ${pct === 100 ? 'bg-accent-red' : pct > 0 ? 'bg-accent-red/40' : 'bg-white/5'}`}
+                                  title={m.title}
+                                />
+                              );
+                            })}
                           </div>
                         </Card>
                       );
@@ -442,7 +506,9 @@ export default function App() {
                     >
                       <div className="flex items-center justify-between px-2">
                         <h2 className="text-sm font-bold text-text-secondary uppercase tracking-[0.2em]">Recomendações</h2>
-                        <Badge className="bg-accent-red/10 text-accent-red border-accent-red/20 text-[10px]">Meta Diária Batida! ✨</Badge>
+                        {dailyGoalProgress.reached && (
+                          <Badge className="bg-accent-green/10 text-accent-green border-accent-green/20 text-[10px]">Meta Diária Batida! ✨</Badge>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {recommendations.map(module => (
@@ -467,10 +533,10 @@ export default function App() {
                 </AnimatePresence>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
                   {stats.subjectProgress.map(s => (
-                    <Card key={s.subject} className="rounded-bento border-border-main bg-card-bg p-6 space-y-4">
+                    <Card key={s.subject} className="rounded-bento border-border bg-card-bg p-6 space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="font-serif italic text-xl text-text-primary">{s.subject}</span>
-                        <Badge variant="outline" className="rounded-full border-border-main text-text-secondary font-bold">
+                        <Badge variant="outline" className="rounded-full border-border text-text-secondary font-bold">
                           {Math.round(s.pct)}%
                         </Badge>
                       </div>
@@ -483,12 +549,27 @@ export default function App() {
                 </div>
               </div>
               <div className="lg:col-span-4 space-y-6">
-                <FocusTimer 
-                  totalStudySeconds={studyTimeSeconds} 
-                  xp={xp} 
-                  timer={timer}
-                />
-                <Card className="rounded-bento border-border bg-card-bg shadow-sm">
+                <div data-tutorial="timer">
+                  <FocusTimer
+                    totalStudySeconds={studyTimeSeconds}
+                    xp={xp}
+                    timer={timer}
+                  />
+                </div>
+                <div data-tutorial="meta">
+                  <DailyGoalRing
+                    progress={dailyGoalProgress}
+                    onSetTarget={dailyGoal.setTargetMinutes}
+                  />
+                </div>
+                <div data-tutorial="flashcards">
+                  <GlobalFlashcardButton
+                    dueCount={globalDueCount}
+                    totalCount={globalTotalCount}
+                    onClick={() => setActiveGlobalFlashcard(true)}
+                  />
+                </div>
+                <Card className="rounded-bento border-border bg-card-bg shadow-sm" data-tutorial="revisoes">
                   <CardHeader className="p-4 md:p-6 pb-4 border-b border-border/50">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg md:text-xl font-serif italic flex items-center gap-3 text-text-primary">
@@ -551,7 +632,25 @@ export default function App() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-bento border-border-main bg-card-bg shadow-sm">
+                <UpcomingDates
+                  dates={importantDates.upcoming}
+                  getCountdown={importantDates.getCountdown}
+                  onNavigate={() => setActiveTab('datas')}
+                />
+                <button
+                  onClick={tutorial.startTutorial}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border bg-card-bg hover:border-accent-red/30 transition-colors touch-target min-h-[44px] group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-accent-red/10 flex items-center justify-center shrink-0 group-hover:bg-accent-red/15 transition-colors">
+                    <Sparkles className="w-4 h-4 text-accent-red" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary">Ajuda</p>
+                    <p className="text-xs font-bold text-text-primary">Ver Tutorial</p>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-text-tertiary group-hover:text-text-secondary transition-colors" />
+                </button>
+                <Card id="settings-card" className="rounded-bento border-border bg-card-bg shadow-sm scroll-mt-20">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-lg font-serif italic flex items-center gap-3 text-text-primary">
                       <Settings2 className="w-5 h-5 text-text-secondary/30" />
@@ -565,7 +664,7 @@ export default function App() {
                         type="date" 
                         value={settings.startDate} 
                         onChange={(e) => setSettings(s => ({ ...s, startDate: e.target.value }))}
-                        className="rounded-xl border-border-main bg-black/20 h-11 text-text-primary"
+                        className="rounded-xl border-border bg-black/20 h-11 text-text-primary"
                       />
                     </div>
                     <div className="space-y-2">
@@ -574,16 +673,20 @@ export default function App() {
                         type="date" 
                         value={settings.examDate} 
                         onChange={(e) => setSettings(s => ({ ...s, examDate: e.target.value }))}
-                        className="rounded-xl border-border-main bg-black/20 h-11 text-text-primary"
+                        className="rounded-xl border-border bg-black/20 h-11 text-text-primary"
                       />
                     </div>
-                    <div className="pt-4 border-t border-border-main/50">
+                    <div className="pt-4 border-t border-border/50">
                       <Button 
                         variant="ghost" 
                         className="w-full text-accent-red hover:bg-accent-red/10 rounded-xl text-[10px] font-bold uppercase tracking-widest h-11"
                         onClick={() => {
                           if (window.confirm("Isso apagará TODO o seu progresso (estudos, pet, conquistas). Tem certeza?")) {
-                            localStorage.clear();
+                            // M6: limpa só as chaves do app, não tudo do domínio
+                            const keysToRemove = Object.keys(localStorage).filter(
+                              k => k.startsWith('catstudy-') || k.startsWith('enem-')
+                            );
+                            keysToRemove.forEach(k => localStorage.removeItem(k));
                             window.location.reload();
                           }
                         }}
@@ -601,38 +704,110 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="pet" className="mt-0 outline-none">
-            <PetView pet={pet} xp={xp} studyTimeSeconds={studyTimeSeconds} isActive={timer.isActive} mode={timer.mode} onInteract={interactWithPet} />
+            <ErrorBoundary fallbackLabel="Erro ao carregar o pet">
+              <PetView pet={pet} xp={xp} studyTimeSeconds={studyTimeSeconds} isActive={timer.isActive} mode={timer.mode} onInteract={interactWithPet} />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="missions" className="mt-0 outline-none">
-            <MissionsView 
-              missions={missions} 
-              chestTracker={pet.chestTracker}
-              weeklyGoal={weeklyGoal} 
-              onClaimMission={claimMissionReward}
-              onClaimWeekly={claimWeeklyReward}
-              onSetWeeklyGoal={setWeeklyHourGoal}
-              onOpenChest={(streak) => interactWithPet('open_chest', streak)}
-            />
+            <ErrorBoundary fallbackLabel="Erro ao carregar missões">
+              <MissionsView
+                missions={missions}
+                chestTracker={pet?.chestTracker}
+                weeklyGoal={weeklyGoal}
+                onClaimMission={claimMissionReward}
+                onClaimWeekly={claimWeeklyReward}
+                onSetWeeklyGoal={setWeeklyHourGoal}
+                onOpenChest={(streak) => interactWithPet('open_chest', streak)}
+              />
+            </ErrorBoundary>
+          </TabsContent>
+
+          <TabsContent value="stats" className="mt-0 outline-none">
+            <ErrorBoundary fallbackLabel="Erro ao carregar estatísticas">
+              <StatsView stats={statsData} />
+            </ErrorBoundary>
+          </TabsContent>
+
+          <TabsContent value="datas" className="mt-0 outline-none">
+            <ErrorBoundary fallbackLabel="Erro ao carregar datas importantes">
+              <ImportantDatesView
+                dates={importantDates.dates}
+                upcoming={importantDates.upcoming}
+                getCountdown={importantDates.getCountdown}
+                onAdd={importantDates.addDate}
+                onRemove={importantDates.removeDate}
+                onCreateFlashcard={flashcards.addGlobalCard}
+              />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="calendar" className="mt-0 outline-none">
-            <CalendarView 
-              calendar={calendar}
-              focusDate={settings.focusDate}
-              onDateSelect={(date) => setSettings(s => ({ ...s, focusDate: date }))}
-              moduleProgress={moduleProgress}
-            />
+            <ErrorBoundary fallbackLabel="Erro ao carregar calendário">
+              <CalendarView
+                calendar={calendar}
+                focusDate={settings.focusDate}
+                onDateSelect={(date) => setSettings(s => ({ ...s, focusDate: date }))}
+                moduleProgress={moduleProgress}
+              />
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </main>
       
-      <footer className="container mx-auto px-6 py-12 border-t border-border-main mt-16 text-center">
+      <footer className="container mx-auto px-6 py-12 border-t border-border mt-16 text-center">
         <p className="text-xs text-text-secondary/40 font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-2">
           Feito com carinho <span className="text-accent-red text-lg">♥</span>
         </p>
       </footer>
       <audio id="timerAlarm" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto" />
+      
+      <AnimatePresence>
+        {activeFlashcardModule && (
+          <ErrorBoundary fallbackLabel="Erro nos flashcards">
+            <FlashcardView
+              moduleId={activeFlashcardModule.id}
+              moduleTitle={activeFlashcardModule.title}
+              onClose={() => setActiveFlashcardModule(null)}
+              onReward={(val) => setXp(x => x + val)}
+            />
+          </ErrorBoundary>
+        )}
+        {activeNoteTopicKey && (() => {
+          const [modId, idxStr] = activeNoteTopicKey.split('__');
+          const idx = parseInt(idxStr, 10);
+          const mod = MODULES.find(m => m.id === modId);
+          const topicLabel = mod?.items?.[idx] ?? '';
+          return (
+            <TopicNoteEditor
+              topicKey={activeNoteTopicKey}
+              moduleTitle={mod?.title ?? ''}
+              topicLabel={topicLabel}
+              initialNote={topicNotes.getNote(activeNoteTopicKey)}
+              onSave={topicNotes.setNote}
+              onDelete={topicNotes.deleteNote}
+              onClose={() => setActiveNoteTopicKey(null)}
+            />
+          );
+        })()}
+        {activeGlobalFlashcard && (
+          <ErrorBoundary fallbackLabel="Erro nos flashcards">
+            <FlashcardView
+              moduleId="global"
+              moduleTitle="Flashcards — Active Recall"
+              onClose={() => setActiveGlobalFlashcard(false)}
+              onReward={(val) => setXp(x => x + val)}
+            />
+          </ErrorBoundary>
+        )}
+      </AnimatePresence>
+
+      {tutorial.showTutorial && (
+        <TutorialOverlay
+          onClose={tutorial.closeTutorial}
+          onNavigate={(tab) => setActiveTab(tab)}
+        />
+      )}
     </div>
   );
 }

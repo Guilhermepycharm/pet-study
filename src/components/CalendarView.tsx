@@ -26,7 +26,7 @@ interface CalendarViewProps {
   moduleProgress: Record<string, { completed: number; total: number; pct: number }>;
 }
 
-export function CalendarView({ calendar, focusDate, onDateSelect, moduleProgress }: CalendarViewProps) {
+export function CalendarView({ calendar = [], focusDate, onDateSelect, moduleProgress = {} }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const days = useMemo(() => {

@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ACCESSORIES_CATALOG, AccessoryCategory } from '../data/accessories';
-import type { PetAction, PetState } from '../hooks/useSchedule';
+import { PetAction, PetState } from '../types';
 
 interface PetDiaryEntry {
   timestamp: string;
@@ -969,7 +969,7 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
 
   const getPetMessage = useCallback(() => {
     if (pet.isDead) return "Zzz... 👻";
-    const lastEntry = pet.diary[0];
+    const lastEntry = pet.diary?.[0];
     if (lastEntry) {
       const entryAge = Date.now() - new Date(lastEntry.timestamp).getTime();
       if (entryAge < 15000) { // React for 15 seconds
@@ -1076,7 +1076,7 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
             <div className="relative mt-12">
               <PetAvatar 
                 stage={currentStage.id} 
-                accessories={pet.accessories} 
+                accessories={pet.accessories ?? { owned: [], equipped: { facial: null, head: null, body: null, skin: null } }}
                 isInspired={isInspired} 
                 hunger={pet.hunger}
                 energy={pet.energy}
@@ -1319,8 +1319,8 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
                             <h4 className="text-[10px] uppercase font-bold text-text-secondary border-b border-white/5 pb-1">{catTitle}</h4>
                             <div className="grid grid-cols-2 gap-3">
                               {items.map(acc => {
-                                const isOwned = pet.accessories.owned.includes(acc.id);
-                                const isActive = pet.accessories.equipped[cat] === acc.id;
+                                const isOwned = (pet.accessories?.owned ?? []).includes(acc.id);
+                                const isActive = pet.accessories?.equipped?.[cat] === acc.id;
                                 const isLocked = acc.exclusive && !isOwned;
                                 
                                 return (
@@ -1364,7 +1364,7 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
                 <TabsContent value="diary" className="mt-0 h-full outline-none">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest">Histórico Recente</h3>
-                    {pet.diary.length > 0 && (
+                    {(pet.diary?.length ?? 0) > 0 && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -1379,10 +1379,10 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
                   </div>
                   <ScrollArea className="h-[360px] pr-4">
                     <div className="space-y-4">
-                      {pet.diary.length === 0 ? (
+                      {(pet.diary?.length ?? 0) === 0 ? (
                         <p className="text-center text-text-secondary text-sm italic py-8">Nenhuma entrada no diário ainda...</p>
                       ) : (
-                        pet.diary.map((entry, i) => (
+                        (pet.diary ?? []).map((entry, i) => (
                           <div key={i} className="relative pl-6 pb-4 border-l border-border-main last:pb-0">
                             <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-accent-red" />
                             <div className="space-y-1">
@@ -1406,7 +1406,7 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
                       { id: '100h', name: 'Mestre do ENEM', desc: '100 horas líquidas', icon: Trophy },
                       { id: 'happy', name: 'Pet Radiante', desc: '7 dias de felicidade', icon: Heart },
                     ].map(badge => {
-                      const isUnlocked = pet.achievements.includes(badge.id);
+                      const isUnlocked = (pet.achievements ?? []).includes(badge.id);
                       return (
                         <div key={badge.id} className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${isUnlocked ? 'bg-accent-red/10 border-accent-red/30' : 'bg-white/5 border-border-main opacity-50'}`}>
                           <div className={`p-2 rounded-lg ${isUnlocked ? 'bg-accent-red text-white' : 'bg-white/10 text-text-secondary'}`}>
