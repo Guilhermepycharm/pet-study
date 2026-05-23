@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DailyMission, WeeklyMission, WeeklyGoal } from '../hooks/useSchedule';
+import { DailyMission, WeeklyMission, WeeklyGoal } from '../types';
 
 interface MissionsViewProps {
   missions: {

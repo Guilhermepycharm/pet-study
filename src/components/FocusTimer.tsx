@@ -73,9 +73,7 @@ export function FocusTimer({ totalStudySeconds, xp, timer }: FocusTimerProps) {
             {xp} XP
           </Badge>
           <Popover>
-            <PopoverTrigger render={<Button variant="ghost" size="icon" className="w-6 h-6 text-text-secondary hover:text-text-primary rounded-full" />}>
-              <Settings2 className="w-3.5 h-3.5" />
-            </PopoverTrigger>
+            <PopoverTrigger render={<Button variant="ghost" size="icon" className="w-6 h-6 text-text-secondary hover:text-text-primary rounded-full"><Settings2 className="w-3.5 h-3.5" /></Button>} />
             <PopoverContent className="w-48 p-2" side="bottom" align="end">
               <div className="space-y-1">
                 <Button 

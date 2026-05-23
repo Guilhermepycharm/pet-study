@@ -145,7 +145,7 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-0 bottom-0 w-[85vw] max-w-[320px] bg-card-bg border-r border-border-main z-[70] flex flex-col shadow-2xl"
+            className="fixed left-0 top-0 bottom-0 w-[85vw] max-w-[320px] bg-card-bg border-r border-border z-[70] flex flex-col shadow-2xl"
           >
             <div className="p-6 border-b border-border flex items-center justify-between h-16 md:h-20">
               <h2 className="text-xl md:text-2xl font-serif italic text-text-primary">Conteúdos</h2>
@@ -157,12 +157,12 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
               </button>
             </div>
 
-            <div className="p-4 border-b border-border-main">
+            <div className="p-4 border-b border-border">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary/40" />
                 <Input 
                   placeholder="Buscar..." 
-                  className="pl-10 bg-black/20 border-border-main rounded-xl h-10 text-sm"
+                  className="pl-10 bg-black/20 border-border rounded-xl h-10 text-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -210,7 +210,7 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                                     className="overflow-hidden pl-3 space-y-2 py-1"
                                   >
                                     {filteredModules(subject).map(module => (
-                                      <div key={module.id} className="space-y-2 p-3 rounded-xl bg-white/5 border border-border-main/50">
+                                      <div key={module.id} className="space-y-2 p-3 rounded-xl bg-white/5 border border-border/50">
                                         <div className="flex items-center justify-between gap-2">
                                           <span className="text-xs font-bold text-text-primary/90 leading-tight">
                                             {module.title}
@@ -232,7 +232,7 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                                                 <Checkbox 
                                                   checked={isDone}
                                                   onCheckedChange={() => toggleTopic(module.id, idx)}
-                                                  className="mt-0.5 border-border-main data-[state=checked]:bg-accent-red data-[state=checked]:border-accent-red"
+                                                  className="mt-0.5 border-border data-[state=checked]:bg-accent-red data-[state=checked]:border-accent-red"
                                                 />
                                                 <span className={`text-[11px] leading-tight transition-colors ${isDone ? 'text-text-secondary/40 line-through' : 'text-text-secondary group-hover:text-text-primary'}`}>
                                                   {item}
@@ -257,7 +257,7 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
             </ScrollArea>
             
             {rescueMode === 'none' ? (
-              <div className="p-4 border-t border-border-main flex gap-2 shrink-0 flex-wrap">
+              <div className="p-4 border-t border-border flex gap-2 shrink-0 flex-wrap">
                 <Button variant="outline" size="sm" onClick={handleGenerateCode} className="text-[10px] flex-1 flex items-center justify-center gap-1.5 touch-target">
                   <Download className="w-3.5 h-3.5" />
                   Gerar
@@ -272,12 +272,12 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                 </Button>
               </div>
             ) : rescueMode === 'export' ? (
-              <div className="p-4 border-t border-border-main flex flex-col gap-2 shrink-0 bg-black/20">
+              <div className="p-4 border-t border-border flex flex-col gap-2 shrink-0 bg-black/20">
                 <p className="text-xs text-text-secondary text-center">Copie seu Código de Resgate:</p>
                 <textarea 
                   readOnly 
                   value={rescueCode} 
-                  className="w-full h-20 text-[10px] font-mono bg-black/40 border border-border-main rounded-md p-2 text-text-primary/70 break-all resize-none"
+                  className="w-full h-20 text-[10px] font-mono bg-black/40 border border-border rounded-md p-2 text-text-primary/70 break-all resize-none"
                 />
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setRescueMode('none')} className="flex-1 text-[10px] touch-target">Voltar</Button>
@@ -287,12 +287,12 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                 </div>
               </div>
             ) : rescueMode === 'import' ? (
-              <div className="p-4 border-t border-border-main flex flex-col gap-2 shrink-0 bg-black/20">
+              <div className="p-4 border-t border-border flex flex-col gap-2 shrink-0 bg-black/20">
                 <p className="text-xs text-text-secondary text-center">Cole seu Código de Resgate:</p>
                 <textarea 
                   value={rescueCode} 
                   onChange={e => setRescueCode(e.target.value)}
-                  className="w-full h-20 text-[10px] font-mono bg-black/40 border border-border-main rounded-md p-2 text-text-primary focus:border-accent-blue outline-none resize-none"
+                  className="w-full h-20 text-[10px] font-mono bg-black/40 border border-border rounded-md p-2 text-text-primary focus:border-accent-blue outline-none resize-none"
                   placeholder="Cole aquele textão cheio de letras aqui..."
                 />
                 <div className="flex gap-2">
@@ -303,12 +303,12 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                 </div>
               </div>
             ) : rescueMode === 'debug' ? (
-              <div className="p-4 border-t border-border-main flex flex-col gap-2 shrink-0 bg-black/20">
+              <div className="p-4 border-t border-border flex flex-col gap-2 shrink-0 bg-black/20">
                 <p className="text-xs text-text-secondary text-center">Digite seu código secreto:</p>
                 <Input 
                   value={debugCode} 
                   onChange={e => setDebugCode(e.target.value)}
-                  className="w-full text-xs font-mono bg-black/40 border border-border-main rounded-md p-2 text-text-primary focus:border-accent-blue outline-none mix-blend-screen"
+                  className="w-full text-xs font-mono bg-black/40 border border-border rounded-md p-2 text-text-primary focus:border-accent-blue outline-none mix-blend-screen"
                   placeholder="Digite o código aqui..."
                 />
                 <div className="flex gap-2">
