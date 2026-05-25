@@ -41,7 +41,7 @@ export function useSchedule() {
     manualAssignments, subjectOrder, realToday
   );
 
-  const { missions, claimMissionReward, weeklyGoal, setWeeklyGoal } = useMissions(
+  const { missions, claimMissionReward, buyFreeze, weeklyGoal, setWeeklyGoal } = useMissions(
     realToday, pet, Object.keys(completedTopics).length, 0, 10, 0
   );
 
@@ -175,8 +175,9 @@ export function useSchedule() {
     interactWithPet,
     applySecretCode,
     missions,
-    claimMissionReward: (id: string, isWeekly?: boolean, isBonus?: boolean) => 
+    claimMissionReward: (id: string, isWeekly?: boolean, isBonus?: boolean) =>
       claimMissionReward(id, isWeekly, isBonus, (reward) => setXp(x => x + reward)),
+    buyFreeze: () => buyFreeze((cost) => setXp(x => x - cost)),
     weeklyGoal,
     setWeeklyHourGoal,
     claimWeeklyReward,

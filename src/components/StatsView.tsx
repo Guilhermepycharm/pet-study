@@ -1,15 +1,20 @@
-import { motion } from 'motion/react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   BookOpen, Clock, Flame, Star, Target,
-  BarChart3, Calendar, Trophy, Zap, TrendingUp
+  BarChart3, Calendar, Trophy, Zap, TrendingUp, Share2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from './ErrorBoundary';
+import { ShareProgress } from './ShareProgress';
 import type { StatsResult } from '../hooks/useStats';
 
 interface StatsViewProps {
   stats: StatsResult;
+  petName?: string;
+  petStage?: string;
 }
 
 function formatTime(hours: number, minutes: number): string {
@@ -49,12 +54,43 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-accent-red', de
   );
 }
 
-export function StatsView({ stats }: StatsViewProps) {
+export function StatsView({ stats, petName = 'Gatinho', petStage = 'Filhote' }: StatsViewProps) {
+  const [showShare, setShowShare] = useState(false);
   const maxWeeklyMinutes = Math.max(...stats.weeklyActivity.map(d => d.minutes), 1);
 
   return (
     <ErrorBoundary fallbackLabel="Erro ao carregar estatísticas">
+      <AnimatePresence>
+        {showShare && (
+          <ShareProgress
+            stats={{
+              pct: stats.overallPct,
+              totalStudyHours: stats.totalStudyHours,
+              xp: stats.xp,
+              petLevel: stats.petLevel,
+              currentStreak: stats.currentStreak,
+              daysToExam: stats.daysUntilExam,
+              totalTopics: stats.totalTopics,
+              completedTopics: stats.completedTopicsCount,
+            }}
+            petName={petName}
+            petStage={petStage}
+            onClose={() => setShowShare(false)}
+          />
+        )}
+      </AnimatePresence>
       <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="flex items-center justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowShare(true)}
+            className="text-text-secondary hover:text-accent-red"
+            title="Compartilhar progresso"
+          >
+            <Share2 className="w-5 h-5" />
+          </Button>
+        </div>
         {/* Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard

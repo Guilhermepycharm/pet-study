@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Coffee, Zap, Clock, Settings2, Volume2, VolumeX, Bell, BellOff } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState } from 'react';
+import { Play, Pause, RotateCcw, Zap, Clock, Settings2, Volume2, VolumeX, Bell, BellOff, Gamepad2 } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { BreakMiniGame } from './BreakMiniGame';
 
 interface FocusTimerProps {
   totalStudySeconds: number;
   xp: number;
+  onAddXp?: (amount: number) => void;
   timer: {
     timeLeft: number;
     isActive: boolean;
@@ -30,12 +32,14 @@ const MODES = {
   long: { label: 'Pausa Longa', minutes: 15, color: 'bg-purple-500' }
 };
 
-export function FocusTimer({ totalStudySeconds, xp, timer }: FocusTimerProps) {
-  const { 
-    timeLeft, isActive, mode, setIsActive, resetTimer, 
-    soundEnabled, setSoundEnabled, 
+export function FocusTimer({ totalStudySeconds, xp, onAddXp, timer }: FocusTimerProps) {
+  const {
+    timeLeft, isActive, mode, setIsActive, resetTimer,
+    soundEnabled, setSoundEnabled,
     notificationsEnabled, setNotificationsEnabled, requestNotificationPermission
   } = timer;
+
+  const [showMiniGame, setShowMiniGame] = useState(false);
 
   const toggleTimer = () => {
     if (!isActive && !notificationsEnabled) {
@@ -144,6 +148,26 @@ export function FocusTimer({ totalStudySeconds, xp, timer }: FocusTimerProps) {
           <RotateCcw className="w-5 h-5 text-text-secondary" />
         </Button>
       </div>
+
+      <AnimatePresence>
+        {showMiniGame && (
+          <BreakMiniGame
+            onXpEarned={(xp) => onAddXp?.(xp)}
+            onClose={() => setShowMiniGame(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {!showMiniGame && (mode === 'short' || mode === 'long') && !isActive && (
+        <Button
+          onClick={() => setShowMiniGame(true)}
+          variant="outline"
+          className="w-full border-border hover:bg-white/5 text-text-secondary"
+        >
+          <Gamepad2 className="w-4 h-4 mr-2" />
+          Jogar na pausa (+XP)
+        </Button>
+      )}
 
       <div className="pt-4 border-t border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[10px] text-text-secondary uppercase tracking-widest font-bold">

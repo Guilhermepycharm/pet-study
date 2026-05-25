@@ -11,7 +11,9 @@ const DEFAULT_MISSIONS: MissionState = {
   lastDailyGenerated: '',
   lastWeeklyGenerated: '',
   streak: 0,
-  lastStreakDate: ''
+  lastStreakDate: '',
+  streakFreeze: 0,
+  lastFreezePurchase: ''
 };
 
 export function useMissions(
@@ -87,6 +89,7 @@ export function useMissions(
       let newBonus = prev.bonus;
       let newLastDailyGenerated = lastDailyGened;
       let newStreak = prev.streak;
+      let freezeConsumed = false;
 
       if (lastDailyGened !== today) {
         // Streak logic
@@ -98,7 +101,11 @@ export function useMissions(
             newStreak += 1;
           }
         } else if (lastDailyGened && differenceInDays(parseISO(today), parseISO(lastDailyGened)) > 1) {
-          newStreak = 0;
+          if (prev.streakFreeze > 0) {
+            freezeConsumed = true;
+          } else {
+            newStreak = 0;
+          }
         }
 
         const pool: DailyMission[] = [];
@@ -152,12 +159,26 @@ export function useMissions(
           lastDailyGenerated: newLastDailyGenerated,
           lastGenerated: newLastDailyGenerated,
           lastWeeklyGenerated,
-          streak: newStreak
+          streak: newStreak,
+          streakFreeze: freezeConsumed ? prev.streakFreeze - 1 : prev.streakFreeze
         };
       }
       return prev;
     });
   }, [realToday, pendingTopicsCount, dueReviewsCount, pet?.happiness, weeklyGoal.targetHours]);
+
+  const buyFreeze = useCallback((onSpend: (xp: number) => void) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    setMissions(prev => {
+      if (prev.lastFreezePurchase === today) return prev; // já comprou hoje
+      onSpend(200);
+      return {
+        ...prev,
+        streakFreeze: (prev.streakFreeze ?? 0) + 1,
+        lastFreezePurchase: today
+      };
+    });
+  }, [setMissions]);
 
   const claimMissionReward = useCallback((missionId: string, isWeekly = false, isBonus = false, onReward: (xp: number) => void) => {
     setMissions(prev => {
@@ -195,6 +216,7 @@ export function useMissions(
     setMissions,
     weeklyGoal,
     setWeeklyGoal,
-    claimMissionReward
+    claimMissionReward,
+    buyFreeze
   };
 }

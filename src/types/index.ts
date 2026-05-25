@@ -132,6 +132,8 @@ export interface MissionState {
   lastWeeklyGenerated: string;
   streak: number;
   lastStreakDate: string;
+  streakFreeze: number;
+  lastFreezePurchase: string;
 }
 
 export interface WeeklyGoal {

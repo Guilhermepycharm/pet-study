@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ACCESSORIES_CATALOG, AccessoryCategory } from '../data/accessories';
+import { ACHIEVEMENTS, CATEGORY_LABELS, type Achievement } from '../data/achievements';
 import { PetAction, PetState } from '../types';
 
 interface PetDiaryEntry {
@@ -960,6 +961,7 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
   }, [pet.audioEnabled, isActive, mode, pet.happiness, pet.isDead]);
 
   const [messageCycleCount, setMessageCycleCount] = useState(0);
+  const [achievementFilter, setAchievementFilter] = useState('all');
   useEffect(() => {
     const interval = setInterval(() => {
       setMessageCycleCount(c => c + 1);
@@ -1183,6 +1185,36 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
               </div>
             </div>
           </Card>
+
+          {/* Evolution Preview */}
+          {(() => {
+            const nextStage = STAGES.find(s => s.minHours > studyHours);
+            if (!nextStage) return null;
+            const currentIdx = STAGES.findIndex(s => s.id === currentStage.id);
+            const prevMinHours = currentIdx > 0 ? STAGES[currentIdx].minHours : 0;
+            const hoursNeeded = nextStage.minHours - prevMinHours;
+            const hoursDone = studyHours - prevMinHours;
+            const pct = Math.min(100, (hoursDone / hoursNeeded) * 100);
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/5 rounded-xl border border-border-main p-4 flex items-center gap-4"
+              >
+                <div className="text-3xl">{nextStage.emoji}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-text-primary">Próximo: {nextStage.name}</span>
+                    <span className="text-[10px] text-text-secondary">Faltam {Math.ceil(nextStage.minHours - studyHours)}h</span>
+                  </div>
+                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                    <motion.div animate={{ width: `${pct}%` }} className="h-full bg-accent-red" />
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
+
           <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
             <Button 
               onClick={() => onInteract('feed')} 
@@ -1399,27 +1431,41 @@ export function PetView({ pet, xp, studyTimeSeconds, isActive, mode, onInteract 
                 </TabsContent>
 
                 <TabsContent value="badges" className="mt-0 h-full outline-none">
-                  <div className="grid grid-cols-1 gap-3">
-                    {[
-                      { id: 'week', name: 'Foco Semanal', desc: '7 dias de estudo', icon: Star },
-                      { id: 'early', name: 'Madrugador', desc: 'Estudo antes das 8h', icon: Zap },
-                      { id: '100h', name: 'Mestre do ENEM', desc: '100 horas líquidas', icon: Trophy },
-                      { id: 'happy', name: 'Pet Radiante', desc: '7 dias de felicidade', icon: Heart },
-                    ].map(badge => {
-                      const isUnlocked = (pet.achievements ?? []).includes(badge.id);
-                      return (
-                        <div key={badge.id} className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${isUnlocked ? 'bg-accent-red/10 border-accent-red/30' : 'bg-white/5 border-border-main opacity-50'}`}>
-                          <div className={`p-2 rounded-lg ${isUnlocked ? 'bg-accent-red text-white' : 'bg-white/10 text-text-secondary'}`}>
-                            <badge.icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-text-primary">{badge.name}</p>
-                            <p className="text-[10px] text-text-secondary">{badge.desc}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-1">
+                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => setAchievementFilter(key)}
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+                          achievementFilter === key
+                            ? 'bg-accent-red text-white'
+                            : 'bg-white/5 text-text-secondary hover:bg-white/10'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
+                  <ScrollArea className="h-[310px] pr-4">
+                    <div className="grid grid-cols-1 gap-3">
+                      {ACHIEVEMENTS
+                        .filter(a => achievementFilter === 'all' || a.category === achievementFilter)
+                        .map(badge => {
+                          const isUnlocked = (pet.achievements ?? []).includes(badge.id);
+                          return (
+                            <div key={badge.id} className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${isUnlocked ? 'bg-accent-red/10 border-accent-red/30' : 'bg-white/5 border-border-main opacity-50'}`}>
+                              <div className={`p-2 rounded-lg ${isUnlocked ? 'bg-accent-red text-white' : 'bg-white/10 text-text-secondary'}`}>
+                                <badge.icon className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-text-primary">{badge.name}</p>
+                                <p className="text-[10px] text-text-secondary">{badge.desc}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </ScrollArea>
                 </TabsContent>
               </div>
             </Tabs>

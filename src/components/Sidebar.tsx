@@ -1,18 +1,25 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  X, 
-  ChevronRight, 
-  ChevronDown, 
-  BookOpen, 
-  CheckCircle2, 
+import {
+  X,
+  ChevronRight,
+  ChevronDown,
+  BookOpen,
+  CheckCircle2,
   Circle,
   Search,
   Download,
   Upload,
-  Terminal
+  Terminal,
+  FileSpreadsheet,
+  Bell,
+  BellOff,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { MODULES, Module } from '../data/modules';
+import { exportStudyCSV } from '../utils/exportData';
+import { useNotifications } from '../hooks/useNotifications';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,6 +30,8 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   completedTopics: Record<string, string>;
+  reviewsDone: Record<string, string>;
+  dailyStudyLog: Record<string, number>;
   toggleTopic: (moduleId: string, topicIndex: number) => void;
   moduleProgress: Record<string, { completed: number; total: number; pct: number }>;
   applySecretCode?: (code: string) => string;
@@ -35,13 +44,14 @@ const AREAS = [
   { id: 'humanas', label: 'Ciências Humanas', subjects: ['História', 'Geografia', 'Filosofia', 'Sociologia'] }
 ];
 
-export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleProgress, applySecretCode }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, completedTopics, reviewsDone, dailyStudyLog, toggleTopic, moduleProgress, applySecretCode }: SidebarProps) {
   const [expandedAreas, setExpandedAreas] = useState<string[]>([]);
   const [expandedSubjects, setExpandedSubjects] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [rescueMode, setRescueMode] = useState<'none' | 'export' | 'import' | 'debug'>('none');
   const [rescueCode, setRescueCode] = useState('');
   const [debugCode, setDebugCode] = useState('');
+  const notifications = useNotifications();
 
   const toggleArea = (id: string) => {
     setExpandedAreas(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
@@ -270,6 +280,10 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                   <Terminal className="w-3.5 h-3.5" />
                   Testes
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => exportStudyCSV({ completedTopics, reviewsDone, dailyStudyLog })} className="text-[10px] flex-1 flex items-center justify-center gap-1.5 touch-target">
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Exportar
+                </Button>
               </div>
             ) : rescueMode === 'export' ? (
               <div className="p-4 border-t border-border flex flex-col gap-2 shrink-0 bg-black/20">
@@ -319,6 +333,57 @@ export function Sidebar({ isOpen, onClose, completedTopics, toggleTopic, moduleP
                 </div>
               </div>
             ) : null}
+
+            {/* Notificações */}
+            <div className="p-4 border-t border-border shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-text-secondary" />
+                  <span className="text-xs font-bold text-text-primary">Lembretes</span>
+                </div>
+                <button
+                  onClick={notifications.toggleEnabled}
+                  className={`w-10 h-6 rounded-full transition-colors ${notifications.settings.enabled ? 'bg-accent-red' : 'bg-white/10'}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${notifications.settings.enabled ? 'translate-x-4' : ''}`} />
+                </button>
+              </div>
+
+              {notifications.settings.enabled && (
+                <div className="space-y-2">
+                  {notifications.settings.reminderTimes.map(time => (
+                    <div key={time} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                      <span className="text-sm text-text-primary font-mono">{time}</span>
+                      <button onClick={() => notifications.removeReminderTime(time)} className="text-text-secondary hover:text-red-400">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2">
+                    <input
+                      type="time"
+                      id="new-reminder-time"
+                      className="flex-1 bg-white/5 border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const input = document.getElementById('new-reminder-time') as HTMLInputElement;
+                        if (input?.value) {
+                          notifications.addReminderTime(input.value);
+                          input.value = '';
+                        }
+                      }}
+                      className="border-border hover:bg-white/5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </motion.div>
         </>
       )}

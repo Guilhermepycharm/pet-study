@@ -1,5 +1,5 @@
 // App.tsx — o coração do bagulho. nem sei como isso tudo funciona junto mas tá rodando
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, parseISO, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -21,6 +21,9 @@ import {
   StickyNote,
   BarChart3,
   CalendarClock,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -28,6 +31,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useSchedule } from './hooks/useSchedule';
 import { useTopicNotes } from './hooks/useTopicNotes';
 import { useStats } from './hooks/useStats';
+import { useAchievements } from './hooks/useAchievements';
+import { useTheme } from './hooks/useTheme';
 import { TopicNoteEditor } from './components/TopicNoteEditor';
 import { StatsView } from './components/StatsView';
 import { useDailyGoal } from './hooks/useDailyGoal';
@@ -66,9 +71,9 @@ export default function App() {
     toggleTopic, markModuleAsRead, markReviewDone,
     changeDayModule,
     completedTopics, moduleProgress, reviewsDone,
-    studyTimeSeconds, dailyStudyLog, subjectOrder, setSubjectOrder, xp, pet, addStudyTime, interactWithPet,
+    studyTimeSeconds, dailyStudyLog, subjectOrder, setSubjectOrder, xp, pet, setPet, addStudyTime, interactWithPet,
     setXp, setStudyTimeSeconds,
-    missions, claimMissionReward,
+    missions, claimMissionReward, buyFreeze,
     weeklyGoal, setWeeklyHourGoal, claimWeeklyReward,
     timer,
     applySecretCode,
@@ -76,8 +81,10 @@ export default function App() {
     clearSystemMessage
   } = useSchedule();
 
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('estudos');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [achievementMsg, setAchievementMsg] = useState<string | null>(null);
 
   // L5: auto-dismiss da mensagem depois de 5s
   useEffect(() => {
@@ -85,6 +92,12 @@ export default function App() {
     const t = setTimeout(clearSystemMessage, 5000);
     return () => clearTimeout(t);
   }, [systemMessage, clearSystemMessage]);
+
+  useEffect(() => {
+    if (!achievementMsg) return;
+    const t = setTimeout(() => setAchievementMsg(null), 5000);
+    return () => clearTimeout(t);
+  }, [achievementMsg]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFlashcardModule, setActiveFlashcardModule] = useState<{ id: string, title: string } | null>(null);
   const [activeNoteTopicKey, setActiveNoteTopicKey] = useState<string | null>(null);
@@ -108,6 +121,38 @@ export default function App() {
     studyTimeSeconds, dailyStudyLog, xp,
     missions, dueReviews.length, settings
   );
+
+  const achievementCtx = useMemo(() => ({
+    studyTimeSeconds,
+    completedTopics,
+    moduleProgress,
+    xp,
+    petLevel: statsData.petLevel,
+    currentStreak: statsData.currentStreak,
+    petHappiness: pet.happiness,
+    petHunger: pet.hunger,
+    totalReviewsDone: statsData.totalReviewsDone,
+    missionsCompleted: statsData.missionsCompleted,
+    hourOfDay: new Date().getHours(),
+  }), [studyTimeSeconds, completedTopics, moduleProgress, xp, statsData.petLevel, statsData.currentStreak, pet.happiness, pet.hunger, statsData.totalReviewsDone, statsData.missionsCompleted]);
+
+  const handleAchievementUnlock = useCallback((ids: string[]) => {
+    setPet(prev => ({ ...prev, achievements: [...(prev.achievements ?? []), ...ids] }));
+  }, [setPet]);
+
+  const handleAchievementMessage = useCallback((msg: string) => {
+    setAchievementMsg(msg);
+  }, []);
+
+  useAchievements(achievementCtx, pet.achievements ?? [], handleAchievementUnlock, handleAchievementMessage);
+
+  const petStage = useMemo(() => {
+    const hours = studyTimeSeconds / 3600;
+    if (hours >= 100) return 'Sábio';
+    if (hours >= 50) return 'Adulto';
+    if (hours >= 10) return 'Jovem';
+    return 'Filhote';
+  }, [studyTimeSeconds]);
 
   const moveSubject = (index: number, direction: 'up' | 'down') => {
     const newOrder = [...subjectOrder];
@@ -157,10 +202,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-bg-main text-text-primary font-sans selection:bg-accent-red/20 selection:text-text-primary">
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         completedTopics={completedTopics}
+        reviewsDone={reviewsDone}
+        dailyStudyLog={dailyStudyLog}
         toggleTopic={toggleTopic}
         moduleProgress={moduleProgress}
         applySecretCode={applySecretCode}
@@ -178,6 +225,24 @@ export default function App() {
               <p className="text-sm md:text-base leading-tight">{systemMessage}</p>
             </div>
             <Button variant="ghost" size="icon" onClick={clearSystemMessage} className="text-white hover:bg-white/20 shrink-0 h-8 w-8">
+              <X className="w-4 h-4" />
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {achievementMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[150] bg-gradient-to-r from-accent-red to-red-400 text-white font-bold px-6 py-4 rounded-bento shadow-2xl flex items-center justify-between gap-4 max-w-[90vw] md:max-w-md"
+          >
+            <div className="flex items-center gap-3">
+              <Trophy className="w-6 h-6 shrink-0" />
+              <p className="text-sm md:text-base leading-tight">{achievementMsg}</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setAchievementMsg(null)} className="text-white hover:bg-white/20 shrink-0 h-8 w-8">
               <X className="w-4 h-4" />
             </Button>
           </motion.div>
@@ -223,6 +288,18 @@ export default function App() {
               <span className="text-[8px] font-bold text-accent-red uppercase">{stats.daysToExam} dias p/ prova</span>
               <Progress value={stats.pct} className="h-1 w-16 bg-white/10" indicatorClassName="bg-accent-red" />
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-text-primary h-10 w-10 touch-target"
+              onClick={() => {
+                const next = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
+                setTheme(next);
+              }}
+              title={theme === 'dark' ? 'Tema escuro' : theme === 'light' ? 'Tema claro' : 'Tema do sistema'}
+            >
+              {theme === 'dark' ? <Moon className="w-5 h-5" /> : theme === 'light' ? <Sun className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -553,6 +630,7 @@ export default function App() {
                   <FocusTimer
                     totalStudySeconds={studyTimeSeconds}
                     xp={xp}
+                    onAddXp={(amount) => setXp(x => x + amount)}
                     timer={timer}
                   />
                 </div>
@@ -715,17 +793,19 @@ export default function App() {
                 missions={missions}
                 chestTracker={pet?.chestTracker}
                 weeklyGoal={weeklyGoal}
+                xp={xp}
                 onClaimMission={claimMissionReward}
                 onClaimWeekly={claimWeeklyReward}
                 onSetWeeklyGoal={setWeeklyHourGoal}
                 onOpenChest={(streak) => interactWithPet('open_chest', streak)}
+                onBuyFreeze={buyFreeze}
               />
             </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="stats" className="mt-0 outline-none">
             <ErrorBoundary fallbackLabel="Erro ao carregar estatísticas">
-              <StatsView stats={statsData} />
+              <StatsView stats={statsData} petName={pet.name} petStage={petStage} />
             </ErrorBoundary>
           </TabsContent>
 

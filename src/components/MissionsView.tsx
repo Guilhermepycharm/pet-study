@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Trophy, Flame, Target, CheckCircle2, 
-  Clock, BookOpen, Utensils, Gamepad2, 
-  ChevronRight, Gift, Star, Calendar, Zap, Sparkles
+import {
+  Trophy, Flame, Target, CheckCircle2,
+  Clock, BookOpen, Utensils, Gamepad2,
+  ChevronRight, Gift, Star, Calendar, Zap, Sparkles, Snowflake
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Button } from '@/components/ui/button';
@@ -19,28 +20,35 @@ interface MissionsViewProps {
     bonus: DailyMission | null;
     weekly: WeeklyMission[];
     streak: number;
+    streakFreeze: number;
+    lastFreezePurchase: string;
   };
   chestTracker: {
     lastOpenedStreak: number;
     obtainedExclusives: string[];
   };
   weeklyGoal: WeeklyGoal;
+  xp: number;
   onClaimMission: (id: string, isWeekly?: boolean, isBonus?: boolean) => void;
   onClaimWeekly: () => void;
   onSetWeeklyGoal: (hours: number) => void;
   onOpenChest: (streak: number) => void;
+  onBuyFreeze: () => void;
 }
 
-export function MissionsView({ 
-  missions, 
+export function MissionsView({
+  missions,
   chestTracker,
-  weeklyGoal, 
-  onClaimMission, 
-  onClaimWeekly, 
+  weeklyGoal,
+  xp,
+  onClaimMission,
+  onClaimWeekly,
   onSetWeeklyGoal,
-  onOpenChest
+  onOpenChest,
+  onBuyFreeze
 }: MissionsViewProps) {
-  
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+
   const getMissionIcon = (type: string) => {
     switch (type) {
       case 'study_time': return <Clock className="w-5 h-5 text-blue-400" />;
@@ -116,6 +124,27 @@ export function MissionsView({
               <h2 className="text-xl md:text-3xl font-serif italic text-text-primary">{missions.streak} Dias de Sequência</h2>
               <p className="text-text-secondary text-[10px] md:text-sm">Mantenha o fogo aceso! 🔥</p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="md:w-56 rounded-bento border-border bg-card-bg overflow-hidden">
+          <CardContent className="p-4 md:p-6 flex flex-col items-center justify-center text-center space-y-2 h-full">
+            <div className="flex items-center gap-2">
+              <Snowflake className={`w-6 h-6 ${(missions.streakFreeze ?? 0) > 0 ? 'text-blue-400' : 'text-text-secondary'}`} />
+              <span className="text-lg font-bold text-text-primary">x{missions.streakFreeze ?? 0}</span>
+            </div>
+            <h3 className="text-sm font-bold text-text-primary">Streak Freeze</h3>
+            <p className="text-[10px] text-text-secondary">Protege 1 dia de sequência</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onBuyFreeze}
+              disabled={xp < 200 || missions.lastFreezePurchase === todayKey}
+              className="w-full text-[10px] border-border hover:bg-white/5 touch-target"
+            >
+              <Snowflake className="w-3 h-3 mr-1.5" />
+              Comprar (200 XP)
+            </Button>
           </CardContent>
         </Card>
 

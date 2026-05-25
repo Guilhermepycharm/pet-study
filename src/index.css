@@ -205,3 +205,44 @@
     @apply font-sans;
     }
 }
+
+.light {
+    --background: #FAFAFA;
+    --foreground: #111111;
+    --card: #FFFFFF;
+    --card-foreground: #111111;
+    --popover: #FFFFFF;
+    --popover-foreground: #111111;
+    --primary: #E53935;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F5F5F5;
+    --secondary-foreground: #111111;
+    --muted: #F5F5F5;
+    --muted-foreground: #666666;
+    --accent: #E53935;
+    --accent-foreground: #FFFFFF;
+    --destructive: #E53935;
+    --border: #E0E0E0;
+    --input: #E0E0E0;
+    --ring: #E53935;
+    --chart-1: #E53935;
+    --chart-2: #666666;
+    --chart-3: #E0E0E0;
+    --chart-4: #F5F5F5;
+    --chart-5: #FFFFFF;
+    --radius: 0.75rem;
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #111111;
+    --sidebar-primary: #E53935;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #F5F5F5;
+    --sidebar-accent-foreground: #111111;
+    --sidebar-border: #E0E0E0;
+    --sidebar-ring: #E53935;
+    --color-bg-main: #FAFAFA;
+    --color-card-bg: #FFFFFF;
+    --color-border-main: #E0E0E0;
+    --color-accent-red: #E53935;
+    --color-text-primary: #111111;
+    --color-text-secondary: #666666;
+}
